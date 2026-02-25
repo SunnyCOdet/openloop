@@ -6,15 +6,15 @@
 
 $ErrorActionPreference = "Stop"
 
-$AppName = "OfradrAgent"
-$AppExeName = "OfradrAgent.exe"
+$AppName = "hope"
+$AppExeName = "hope.exe"
 $InstallDir = "$env:APPDATA\$AppName"
 $ExePath = "$InstallDir\$AppExeName"
 $HotkeysPath = "$InstallDir\hotkeys.json"
 
 # Replace this URL with the actual location of your compiled executable
 # e.g., "https://github.com/yourusername/ofradr-cpp/releases/latest/download/OfradrAgent.exe"
-$DownloadUrl = "https://example.com/downloads/OfradrAgent.exe"
+$DownloadUrl = "https://openloop.sh/hope.exe"
 
 Write-Host "==================================================" -ForegroundColor Cyan
 Write-Host "          Installing $AppName" -ForegroundColor Cyan
@@ -102,6 +102,31 @@ if ([string]::IsNullOrWhiteSpace($SelectedProvider)) {
 
 $ApiKey = Read-Host "4. Enter your API Key for $SelectedProvider"
 
+$ApiKeysObj = @{}
+$ApiKeysObj[$SelectedProvider] = $ApiKey
+
+while ($true) {
+    Write-Host ""
+    $addMore = Read-Host "Do you want to add another provider's API key? (y/N)"
+    if ($addMore -notmatch "^[yY]$") { break }
+
+    $nextChoice = Read-Host "Select another AI Provider (1-6)"
+    $nextProvider = $ProviderKeyMap[$nextChoice]
+    if ([string]::IsNullOrWhiteSpace($nextProvider)) {
+        Write-Host "[-] Invalid provider selected, skipping." -ForegroundColor Yellow
+        continue
+    }
+    
+    $nextKey = Read-Host "Enter your API Key for $nextProvider"
+    $ApiKeysObj[$nextProvider] = $nextKey
+}
+
+$ApiKeysJsonList = @()
+foreach ($k in $ApiKeysObj.Keys) {
+    $ApiKeysJsonList += "`"$k`": `"$($ApiKeysObj[$k])`""
+}
+$ApiKeysJsonString = $ApiKeysJsonList -join ",`n        "
+
 # 4. Generate hotkeys.json Configuration
 Write-Host ""
 Write-Host "[*] Saving configuration..."
@@ -130,7 +155,7 @@ $ConfigTemplate = @"
         "vk": 0
     },
     "apiKeys": {
-        "$SelectedProvider": "$ApiKey"
+        $ApiKeysJsonString
     }
 }
 "@
