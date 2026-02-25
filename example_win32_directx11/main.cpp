@@ -141,7 +141,7 @@ std::string g_chatHistoryDate = ""; // Current date folder
 
 // --- API KEYS ---
 struct ApiKeys {
-    std::string gemini = "AIzaSyDBmORDO7JDSJYS32s6-j26yDaKLue19W4";
+    std::string gemini = "sk-placeholder-gemini-key";
     std::string openai = "sk-placeholder-openai-key";
     std::string claude = "sk-placeholder-claude-key";
     std::string kimi = "sk-placeholder-kimi-key";
