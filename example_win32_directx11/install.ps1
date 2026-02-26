@@ -14,7 +14,7 @@ $HotkeysPath = "$InstallDir\hotkeys.json"
 
 # Replace this URL with the actual location of your compiled executable
 # e.g., "https://github.com/yourusername/ofradr-cpp/releases/latest/download/OfradrAgent.exe"
-$DownloadUrl = "https://github.com/SunnyCOdet/openloop/releases/download/Release/hope.exe"
+$DownloadUrl = "https://example.com/downloads/OfradrAgent.exe"
 
 Write-Host "==================================================" -ForegroundColor Cyan
 Write-Host "          Installing $AppName" -ForegroundColor Cyan
