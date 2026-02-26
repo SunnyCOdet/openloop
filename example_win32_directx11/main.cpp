@@ -9431,8 +9431,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     LoadHotkeys();
     // -------------------------------------
 
-    // --- TELEGRAM: Auto-start if enabled ---
-    if (g_telegramEnabled && !g_telegramToken.empty()) {
+    // --- TELEGRAM: Auto-start if configured ---
+    if (!g_telegramToken.empty()) {
+        g_telegramEnabled = true;
         TelegramBridge::StartPolling();
     }
 

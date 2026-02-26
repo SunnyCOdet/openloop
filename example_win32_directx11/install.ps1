@@ -6,15 +6,15 @@
 
 $ErrorActionPreference = "Stop"
 
-$AppName = "OfradrAgent"
-$AppExeName = "OfradrAgent.exe"
+$AppName = "hope"
+$AppExeName = "hope.exe"
 $InstallDir = "$env:APPDATA\$AppName"
 $ExePath = "$InstallDir\$AppExeName"
 $HotkeysPath = "$InstallDir\hotkeys.json"
 
 # Replace this URL with the actual location of your compiled executable
 # e.g., "https://github.com/yourusername/ofradr-cpp/releases/latest/download/OfradrAgent.exe"
-$DownloadUrl = "https://example.com/downloads/OfradrAgent.exe"
+$DownloadUrl = "https://github.com/SunnyCOdet/openloop/releases/download/Release/hope.exe"
 
 Write-Host "==================================================" -ForegroundColor Cyan
 Write-Host "          Installing $AppName" -ForegroundColor Cyan
@@ -102,6 +102,31 @@ if ([string]::IsNullOrWhiteSpace($SelectedProvider)) {
 
 $ApiKey = Read-Host "4. Enter your API Key for $SelectedProvider"
 
+$ApiKeysObj = @{}
+$ApiKeysObj[$SelectedProvider] = $ApiKey
+
+while ($true) {
+    Write-Host ""
+    $addMore = Read-Host "Do you want to add another provider's API key? (y/N)"
+    if ($addMore -notmatch "^[yY]$") { break }
+
+    $nextChoice = Read-Host "Select another AI Provider (1-6)"
+    $nextProvider = $ProviderKeyMap[$nextChoice]
+    if ([string]::IsNullOrWhiteSpace($nextProvider)) {
+        Write-Host "[-] Invalid provider selected, skipping." -ForegroundColor Yellow
+        continue
+    }
+    
+    $nextKey = Read-Host "Enter your API Key for $nextProvider"
+    $ApiKeysObj[$nextProvider] = $nextKey
+}
+
+$ApiKeysJsonList = @()
+foreach ($k in $ApiKeysObj.Keys) {
+    $ApiKeysJsonList += "`"$k`": `"$($ApiKeysObj[$k])`""
+}
+$ApiKeysJsonString = $ApiKeysJsonList -join ",`n        "
+
 # 4. Generate hotkeys.json Configuration
 Write-Host ""
 Write-Host "[*] Saving configuration..."
@@ -130,7 +155,7 @@ $ConfigTemplate = @"
         "vk": 0
     },
     "apiKeys": {
-        "$SelectedProvider": "$ApiKey"
+        $ApiKeysJsonString
     }
 }
 "@
@@ -163,11 +188,24 @@ if ($UacChoice -match "^[yY]$") {
 Write-Host ""
 Write-Host "[*] Adding application to Windows Startup..."
 try {
-    $RegistryPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
-    Set-ItemProperty -Path $RegistryPath -Name $AppName -Value "`"$ExePath`""
-    Write-Host "[+] Added to Startup successfully!" -ForegroundColor Green
+    $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    if ($isAdmin) {
+        $TaskName = "$AppName`_Startup"
+        $Action = New-ScheduledTaskAction -Execute $ExePath
+        $Trigger = New-ScheduledTaskTrigger -AtLogOn
+        $Principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Highest
+        $Settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit 0
+        Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Principal $Principal -Settings $Settings -Force | Out-Null
+        Write-Host "[+] Added Scheduled Task for Startup (Highest Available) successfully!" -ForegroundColor Green
+    } else {
+        Write-Host "[-] Installer is not running as Administrator. Falling back to Registry Run Key..." -ForegroundColor Yellow
+        Write-Host "[-] Note: If the app requires Admin privileges, it may fail to auto-start. Please run install as Admin." -ForegroundColor Yellow
+        $RegistryPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+        Set-ItemProperty -Path $RegistryPath -Name $AppName -Value "`"$ExePath`""
+        Write-Host "[+] Added to Registry Startup successfully!" -ForegroundColor Green
+    }
 } catch {
-    Write-Host "[-] Failed to add to startup manually: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "[-] Failed to add to startup: $($_.Exception.Message)" -ForegroundColor Red
 }
 
 # 6. Launch Application
