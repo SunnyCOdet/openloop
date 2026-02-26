@@ -186,6 +186,12 @@ if ($UacChoice -match "^[yY]$") {
 
 # 6. Add to Windows Startup
 Write-Host ""
+Write-Host "[*] Cleaning up legacy startup configurations..."
+try {
+    $RegistryPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+    Remove-ItemProperty -Path $RegistryPath -Name $AppName -ErrorAction Ignore
+} catch {}
+
 Write-Host "[*] Adding application to Windows Startup..."
 try {
     $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -193,17 +199,22 @@ try {
         $TaskName = "$AppName`_Startup"
         $Action = New-ScheduledTaskAction -Execute $ExePath -WorkingDirectory $InstallDir
         $Trigger = New-ScheduledTaskTrigger -AtLogOn
-        $Principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive
+        $Principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Highest
         $Settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit 0
         Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Principal $Principal -Settings $Settings -Force | Out-Null
         Write-Host "[+] Added Scheduled Task for Startup successfully!" -ForegroundColor Green
     } else {
-        Write-Host "[-] Installer is not running as Administrator. Falling back to Registry Run Key..." -ForegroundColor Yellow
+        Write-Host "[-] Installer is not running as Administrator. Falling back to Startup Folder Shortcut..." -ForegroundColor Yellow
         Write-Host "[-] Note: If the app requires Admin privileges, it may fail to auto-start. Please run install as Admin." -ForegroundColor Yellow
-        $RegistryPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
-        # Use cmd.exe /c start to specify the working directory for the registry key fallback
-        Set-ItemProperty -Path $RegistryPath -Name $AppName -Value "cmd.exe /c start `"`" /d `"$InstallDir`" `"$ExePath`""
-        Write-Host "[+] Added to Registry Startup successfully!" -ForegroundColor Green
+        $StartupFolder = [Environment]::GetFolderPath('Startup')
+        $ShortcutPath = Join-Path $StartupFolder "$AppName.lnk"
+        $WshShell = New-Object -ComObject WScript.Shell
+        $Shortcut = $WshShell.CreateShortcut($ShortcutPath)
+        $Shortcut.TargetPath = $ExePath
+        $Shortcut.WorkingDirectory = $InstallDir
+        $Shortcut.WindowStyle = 7 # Minimized
+        $Shortcut.Save()
+        Write-Host "[+] Added to Startup folder successfully!" -ForegroundColor Green
     }
 } catch {
     Write-Host "[-] Failed to add to startup: $($_.Exception.Message)" -ForegroundColor Red
