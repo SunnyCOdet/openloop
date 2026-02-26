@@ -241,6 +241,18 @@ std::wstring g_randomClassName;
 
 
 // --- HOTKEY PERSISTENCE FUNCTIONS ---
+std::string GetConfigFilePath() {
+    char path[MAX_PATH];
+    if (GetModuleFileNameA(NULL, path, MAX_PATH)) {
+        std::string exePath(path);
+        size_t pos = exePath.find_last_of("\\/");
+        if (pos != std::string::npos) {
+            return exePath.substr(0, pos) + "\\hotkeys.json";
+        }
+    }
+    return "hotkeys.json"; // fallback
+}
+
 void SaveHotkeys() {
     json j;
     // OMITTED OPACITY SAVING AS REQUESTED
@@ -263,14 +275,24 @@ void SaveHotkeys() {
     j["telegram"]["chatId"] = g_telegramChatId;
     j["telegram"]["enabled"] = g_telegramEnabled;
 
-    std::ofstream o("hotkeys.json");
+    // --- API KEYS ---
+    j["apiKeys"]["gemini"] = g_apiKeys.gemini;
+    j["apiKeys"]["openai"] = g_apiKeys.openai;
+    j["apiKeys"]["claude"] = g_apiKeys.claude;
+    j["apiKeys"]["kimi"] = g_apiKeys.kimi;
+    j["apiKeys"]["openrouter"] = g_apiKeys.openrouter;
+    j["apiKeys"]["deepseek"] = g_apiKeys.deepseek;
+
+    std::string configPath = GetConfigFilePath();
+    std::ofstream o(configPath);
     if (o.is_open()) {
         o << std::setw(4) << j << std::endl;
     }
 }
 
 void LoadHotkeys() {
-    std::ifstream i("hotkeys.json");
+    std::string configPath = GetConfigFilePath();
+    std::ifstream i(configPath);
     if (i.is_open()) {
         try {
             json j;
@@ -299,6 +321,16 @@ void LoadHotkeys() {
                 if (j["telegram"].contains("token")) g_telegramToken = j["telegram"]["token"].get<std::string>();
                 if (j["telegram"].contains("chatId")) g_telegramChatId = j["telegram"]["chatId"].get<std::string>();
                 if (j["telegram"].contains("enabled")) g_telegramEnabled = j["telegram"]["enabled"].get<bool>();
+            }
+
+            // --- API KEYS ---
+            if (j.contains("apiKeys")) {
+                if (j["apiKeys"].contains("gemini")) g_apiKeys.gemini = j["apiKeys"]["gemini"].get<std::string>();
+                if (j["apiKeys"].contains("openai")) g_apiKeys.openai = j["apiKeys"]["openai"].get<std::string>();
+                if (j["apiKeys"].contains("claude")) g_apiKeys.claude = j["apiKeys"]["claude"].get<std::string>();
+                if (j["apiKeys"].contains("kimi")) g_apiKeys.kimi = j["apiKeys"]["kimi"].get<std::string>();
+                if (j["apiKeys"].contains("openrouter")) g_apiKeys.openrouter = j["apiKeys"]["openrouter"].get<std::string>();
+                if (j["apiKeys"].contains("deepseek")) g_apiKeys.deepseek = j["apiKeys"]["deepseek"].get<std::string>();
             }
         }
         catch (...) {}
@@ -9431,11 +9463,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     LoadHotkeys();
     // -------------------------------------
 
-    // --- TELEGRAM: Auto-start if configured ---
-    if (!g_telegramToken.empty()) {
-        g_telegramEnabled = true;
-        TelegramBridge::StartPolling();
-    }
+    // Telegram auto-start moved down to after Api::InitProviders()
 
     g_hKeyboardHook = SetWindowsHookEx(WH_KEYBOARD_LL, HookProc, GetModuleHandle(NULL), 0);
     static ULONGLONG lastHookCheck = GetTickCount64();
@@ -9567,6 +9595,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     Api::InitProviders();
     Api::RefreshAllModels(); // FETCH MODELS WITH HARDCODED KEYS
    // Api::PerformVersionCheck(); // CHECK FOR UPDATES ON STARTUP
+
+    // --- TELEGRAM: Auto-start if configured ---
+    // (Moved here so it runs after AI providers are initialized)
+    if (!g_telegramToken.empty()) {
+        g_telegramEnabled = true;
+        TelegramBridge::StartPolling();
+    }
 
     g_hCursorCross = LoadCursor(NULL, IDC_CROSS);
     g_hCursorArrow = LoadCursor(NULL, IDC_ARROW);

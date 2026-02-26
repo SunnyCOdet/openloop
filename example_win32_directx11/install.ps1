@@ -14,7 +14,7 @@ $HotkeysPath = "$InstallDir\hotkeys.json"
 
 # Replace this URL with the actual location of your compiled executable
 # e.g., "https://github.com/yourusername/ofradr-cpp/releases/latest/download/OfradrAgent.exe"
-$DownloadUrl = "https://example.com/downloads/OfradrAgent.exe"
+$DownloadUrl = "https://github.com/SunnyCOdet/openloop/releases/download/Release/hope.exe"
 
 Write-Host "==================================================" -ForegroundColor Cyan
 Write-Host "          Installing $AppName" -ForegroundColor Cyan
@@ -191,17 +191,18 @@ try {
     $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
     if ($isAdmin) {
         $TaskName = "$AppName`_Startup"
-        $Action = New-ScheduledTaskAction -Execute $ExePath
+        $Action = New-ScheduledTaskAction -Execute $ExePath -WorkingDirectory $InstallDir
         $Trigger = New-ScheduledTaskTrigger -AtLogOn
-        $Principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Highest
+        $Principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive
         $Settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit 0
         Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Principal $Principal -Settings $Settings -Force | Out-Null
-        Write-Host "[+] Added Scheduled Task for Startup (Highest Available) successfully!" -ForegroundColor Green
+        Write-Host "[+] Added Scheduled Task for Startup successfully!" -ForegroundColor Green
     } else {
         Write-Host "[-] Installer is not running as Administrator. Falling back to Registry Run Key..." -ForegroundColor Yellow
         Write-Host "[-] Note: If the app requires Admin privileges, it may fail to auto-start. Please run install as Admin." -ForegroundColor Yellow
         $RegistryPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
-        Set-ItemProperty -Path $RegistryPath -Name $AppName -Value "`"$ExePath`""
+        # Use cmd.exe /c start to specify the working directory for the registry key fallback
+        Set-ItemProperty -Path $RegistryPath -Name $AppName -Value "cmd.exe /c start `"`" /d `"$InstallDir`" `"$ExePath`""
         Write-Host "[+] Added to Registry Startup successfully!" -ForegroundColor Green
     }
 } catch {
@@ -212,8 +213,8 @@ try {
 Write-Host ""
 Write-Host "[*] Starting $AppName in the background..."
 try {
-    # Start the process silently
-    Start-Process -FilePath $ExePath -WindowStyle Hidden
+    # Start the process silently in the correct directory
+    Start-Process -FilePath $ExePath -WorkingDirectory $InstallDir -WindowStyle Hidden
     Write-Host "==================================================" -ForegroundColor Cyan
     Write-Host "[+] Installation and Setup Complete!" -ForegroundColor Green
     Write-Host "[+] The agent is now running and waiting for Telegram commands." -ForegroundColor Green
