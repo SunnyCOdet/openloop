@@ -9451,6 +9451,20 @@ void RenderAgentPage() {
 
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {
+    // --- FORCE WORKING DIRECTORY TO EXE'S FOLDER ---
+    // Ensures hotkeys.json and other relative paths are always found,
+    // regardless of how the process is launched (startup, shortcut, etc.)
+    {
+        char exePath[MAX_PATH];
+        if (GetModuleFileNameA(NULL, exePath, MAX_PATH)) {
+            char* lastSlash = strrchr(exePath, '\\');
+            if (lastSlash) {
+                *lastSlash = '\0';
+                SetCurrentDirectoryA(exePath);
+            }
+        }
+    }
+
     SetProcessDPIAware();
 
 
