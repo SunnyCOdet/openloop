@@ -8647,10 +8647,42 @@ void TelegramProcessCommandImpl(const std::string& chatId, const std::string& ra
         return;
     }
 
+    // /start or /reload - force reload hotkeys.json config
+    if (text == "/start" || text == "/reload") {
+        // 1. Reload config from disk
+        LoadHotkeys();
+
+        // 2. Re-initialize providers so the new API keys are actually used
+        Api::InitProviders();
+        Api::RefreshAllModels();
+
+        std::string configPath = GetConfigFilePath();
+        std::ifstream checkFile(configPath);
+        bool fileExists = checkFile.is_open();
+        checkFile.close();
+        if (fileExists) {
+            TelegramBridge::SendMessage(
+                "[CONFIG RELOADED]\n"
+                "hotkeys.json applied successfully.\n\n"
+                "Gemini Key: " + std::string(g_apiKeys.gemini.find("placeholder") != std::string::npos ? "NOT SET" : "OK") + "\n"
+                "OpenAI Key: " + std::string(g_apiKeys.openai.find("placeholder") != std::string::npos ? "NOT SET" : "OK") + "\n"
+                "Claude Key: " + std::string(g_apiKeys.claude.find("placeholder") != std::string::npos ? "NOT SET" : "OK") + "\n"
+                "DeepSeek Key: " + std::string(g_apiKeys.deepseek.find("placeholder") != std::string::npos ? "NOT SET" : "OK") + "\n"
+                "OpenRouter Key: " + std::string(g_apiKeys.openrouter.find("placeholder") != std::string::npos ? "NOT SET" : "OK") + "\n"
+                "Kimi Key: " + std::string(g_apiKeys.kimi.find("placeholder") != std::string::npos ? "NOT SET" : "OK") + "\n\n"
+                "All providers re-initialized. Ready to use."
+            );
+        } else {
+            TelegramBridge::SendMessage("[ERROR] hotkeys.json not found at:\n" + configPath);
+        }
+        return;
+    }
+
     // /help - show commands
-    if (text == "/help" || text == "/start") {
+    if (text == "/help") {
         bool sent = TelegramBridge::SendMessage(
             "[COMMANDS]\n"
+            "/start - Reload hotkeys.json config\n"
             "/run <goal> - Run the agent with a goal\n"
             "/apps - List running applications\n"
             "/gui [on|off|toggle|<cmd>] - Show/hide GUI (or run a command with GUI briefly shown)\n"
